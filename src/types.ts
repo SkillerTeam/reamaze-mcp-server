@@ -4,9 +4,22 @@ export const STATUS_LABELS: Record<number, string> = {
   0: "Open",
   1: "Responded",
   2: "Done",
-  3: "Pending",
-  4: "Spam",
-  5: "Archived",
+  3: "Spam",
+  4: "Archived",
+  5: "On Hold",
+  6: "Auto-Done",
+  7: "AI Agent Assigned",
+  8: "AI Agent Done",
+  9: "Spam (AI)",
+};
+
+export const STATUS_NAMES_TO_VALUES: Record<string, number> = {
+  open: 0,
+  responded: 1,
+  done: 2,
+  spam: 3,
+  archived: 4,
+  "on hold": 5,
 };
 
 export interface ReamazeConversation {

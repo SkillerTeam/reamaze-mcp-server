@@ -4,7 +4,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { ReamazeClient } from "./reamaze-client.js";
-import { STATUS_LABELS } from "./types.js";
+import { STATUS_LABELS, STATUS_NAMES_TO_VALUES } from "./types.js";
 
 const server = new McpServer({
   name: "reamaze",
@@ -168,6 +168,70 @@ IMPORTANT — SEND SAFETY: Before calling this tool, you MUST present the full d
           {
             type: "text" as const,
             text: `Error sending reply: ${error instanceof Error ? error.message : String(error)}`,
+          },
+        ],
+      };
+    }
+  }
+);
+
+// --- Tool: update_conversation ---
+server.tool(
+  "update_conversation",
+  "Update a Reamaze conversation's status, assignee, or tags. Use this to archive tickets, reassign them, or change their status.",
+  {
+    slug: z.string().describe("The conversation slug (identifier)"),
+    status: z
+      .enum(["open", "responded", "done", "spam", "archived", "on hold"])
+      .optional()
+      .describe("New status for the conversation"),
+    assignee: z
+      .string()
+      .optional()
+      .describe("Email address of the staff member to assign the conversation to"),
+    tags: z
+      .array(z.string())
+      .optional()
+      .describe("Replace the conversation's tags with this list"),
+  },
+  async ({ slug, status, assignee, tags }) => {
+    try {
+      const updates: { status?: number; assignee?: string; tag_list?: string[] } = {};
+
+      if (status !== undefined) {
+        updates.status = STATUS_NAMES_TO_VALUES[status];
+      }
+      if (assignee !== undefined) {
+        updates.assignee = assignee;
+      }
+      if (tags !== undefined) {
+        updates.tag_list = tags;
+      }
+
+      const conversation = await client.updateConversation(slug, updates);
+
+      const newStatus = STATUS_LABELS[conversation.status] ?? `Unknown(${conversation.status})`;
+      const newAssignee = conversation.assignee?.name ?? "Unassigned";
+
+      const summary = [
+        `Conversation [${slug}] updated:`,
+        `  Status: ${newStatus}`,
+        `  Assignee: ${newAssignee}`,
+        conversation.tag_list.length > 0
+          ? `  Tags: ${conversation.tag_list.join(", ")}`
+          : `  Tags: (none)`,
+      ].join("\n");
+
+      return {
+        content: [{ type: "text" as const, text: summary }],
+      };
+    } catch (error) {
+      return {
+        isError: true,
+        content: [
+          {
+            type: "text" as const,
+            text: `Error updating conversation: ${error instanceof Error ? error.message : String(error)}`,
           },
         ],
       };

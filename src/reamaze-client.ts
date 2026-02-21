@@ -166,6 +166,33 @@ export class ReamazeClient {
     );
   }
 
+  async updateConversation(
+    slug: string,
+    updates: {
+      status?: number;
+      assignee?: string;
+      tag_list?: string[];
+    }
+  ): Promise<ReamazeConversation> {
+    const body: Record<string, unknown> = { conversation: {} };
+    const conv = body.conversation as Record<string, unknown>;
+
+    if (updates.status !== undefined) {
+      conv.status = updates.status;
+    }
+    if (updates.assignee !== undefined) {
+      conv.assignee = updates.assignee;
+    }
+    if (updates.tag_list !== undefined) {
+      conv.tag_list = updates.tag_list;
+    }
+
+    return this.request<ReamazeConversation>(
+      `/conversations/${encodeURIComponent(slug)}`,
+      { method: "PUT", body }
+    );
+  }
+
   async addNote(
     email: string,
     body: string
