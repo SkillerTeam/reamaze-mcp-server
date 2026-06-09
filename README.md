@@ -41,6 +41,45 @@ claude mcp add reamaze \
 
 This stores the server config (including env vars) in `~/.claude.json`. Credentials are never committed to the repo.
 
+## Remote deployment (Railway / HTTP transport)
+
+The stdio setup above runs the server locally as a subprocess of Claude Code. To host it once and connect from anywhere — Claude Code on any machine, claude.ai custom connectors, or automated agents — run the **HTTP transport** entrypoint (`build/http.js`) instead of the stdio one. It exposes a single MCP Streamable HTTP endpoint at `POST /mcp`, protected by a bearer token.
+
+### Environment variables
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `REAMAZE_BRAND` | yes | Reamaze subdomain |
+| `REAMAZE_EMAIL` | yes | Staff email with API access |
+| `REAMAZE_API_TOKEN` | yes | Reamaze API token |
+| `MCP_AUTH_TOKEN` | yes (HTTP only) | Shared secret clients must send as `Authorization: Bearer <token>`. Generate a long random value. The HTTP server refuses to start without it. |
+| `PORT` | no | HTTP port (Railway sets this automatically; defaults to `3000`) |
+
+### Deploy to Railway
+
+1. **New Project → Deploy from GitHub repo** → select this repo.
+2. Under **Variables**, set `REAMAZE_BRAND`, `REAMAZE_EMAIL`, `REAMAZE_API_TOKEN`, and a strong `MCP_AUTH_TOKEN`.
+3. `railway.json` already pins the start command to `npm run start:http` and a `/healthz` health check — no further build config needed.
+4. Under **Settings → Networking**, generate a public domain. Your endpoint is `https://<app>.up.railway.app/mcp`.
+5. Verify it's up: `https://<app>.up.railway.app/healthz` returns `ok`.
+
+### Connect Claude Code to the remote server
+
+```bash
+claude mcp add --transport http reamaze https://<app>.up.railway.app/mcp \
+  --header "Authorization: Bearer <MCP_AUTH_TOKEN>" -s user
+```
+
+Then restart Claude Code and run `claude mcp list` to confirm. (New MCP servers are picked up on restart, not inside an already-running session.)
+
+### Run the HTTP server locally
+
+```bash
+npm run build
+REAMAZE_BRAND=yourbrand REAMAZE_EMAIL=you@example.com REAMAZE_API_TOKEN=yourtoken \
+  MCP_AUTH_TOKEN=dev-secret PORT=3000 npm run start:http
+```
+
 ## Use Cases
 
 ### Customer support with Shopify order lookups
@@ -92,7 +131,9 @@ REAMAZE_BRAND=yourbrand REAMAZE_EMAIL=you@example.com REAMAZE_API_TOKEN=yourtoke
 
 ```
 src/
-  index.ts            # MCP server setup and tool definitions
+  server.ts           # createServer() — builds the MCP server, registers all tools
+  index.ts            # stdio entrypoint (local Claude Code usage)
+  http.ts             # Streamable HTTP entrypoint (remote/hosted, bearer-token gated)
   reamaze-client.ts   # Reamaze REST API client
   types.ts            # TypeScript interfaces and constants
 ```
